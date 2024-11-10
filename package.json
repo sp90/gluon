@@ -17,6 +17,6 @@
   "homepage": "https://github.com/gluon-framework/gluon#readme",
   "type": "module",
   "dependencies": {
-    "ws": "^8.11.0"
+    "@types/bun": "^1.1.13"
   }
 }

@@ -1,6 +1,32 @@
-import { open } from '../index.js';
+import { open } from '../index'; // Assuming index.js is a TypeScript file or has a declaration file
 
-export default async ({ name, icon = '', version = '', description = '', links = [], gluonVersions } = {}) => {
+interface Link {
+  href: string;
+  text: string;
+}
+
+interface GluonVersions {
+  product: {
+    name: string;
+    version: string;
+  };
+}
+
+export default async ({
+  name = '',
+  icon = '',
+  version = '',
+  description = '',
+  links = [] as Link[],
+  gluonVersions,
+}: {
+  name?: string;
+  icon?: string;
+  version?: string;
+  description?: string;
+  links?: Link[];
+  gluonVersions?: GluonVersions;
+} = {}) => {
   const html = `
 <title>${name}</title>
 <link rel="icon" href="${icon}">
@@ -12,24 +38,29 @@ export default async ({ name, icon = '', version = '', description = '', links =
   </div>
 </div>
 <span class="desc">${description}</span>
-${gluonVersions ? `<div class="gluon-versions">
+${
+  gluonVersions
+    ? `<div class="gluon-versions">
   <span>Powered by</span>
   <div>
     <div>
       <img width=28 height=28 src="https://gluonjs.org/logo.png">
-      ${process.versions.gluon.split('-')[0]}
+      ${process.versions.gluon?.split('-')[0]}
     </div>
     <div>
-      <img width=28 height=28 src="https://nodejs.org/static/images/favicons/favicon.png">
-      ${process.versions.node}
+      ${process.versions.bun}
     </div>
     <div>
-      <img width=28 height=28 src="https://gluon-framework.github.io/browser-icons/${gluonVersions.product.name.toLowerCase().replaceAll(' ', '_')}.png">
+      <img width=28 height=28 src="https://gluon-framework.github.io/browser-icons/${gluonVersions.product.name
+        .toLowerCase()
+        .replaceAll(' ', '_')}.png">
       ${gluonVersions.product.version.split('.')[0]}
     </div>
   </div>
-</div>` : ''}
-<div class="links">${links.map(x => `<a href="${x.href}">${x.text}</a>`).join('')}</div>
+</div>`
+    : ''
+}
+<div class="links">${links.map((x) => `<a href="${x.href}">${x.text}</a>`).join('')}</div>
 <style>
   html, body {
     background: #101418;
@@ -125,7 +156,7 @@ ${gluonVersions ? `<div class="gluon-versions">
 
   const url = 'data:text/html;base64,' + Buffer.from(html).toString('base64');
   open(url, {
-    windowSize: [ 420 + (name.length * 8), 340 + (36 * links.length) ],
-    incognito: true
+    windowSize: [420 + name.length * 8, 340 + 36 * links.length],
+    incognito: true,
   });
 };
