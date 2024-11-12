@@ -2,7 +2,7 @@ FROM oven/bun:canary-debian
 
 # Install necessary packages (no need for xvfb or a window manager)
 RUN apt-get update && \
-    apt-get install -y --no-install-recommends chromium procps net-tools iproute2 grep dbus sudo x11-xserver-utils mesa-utils dbus-x11 && \
+    apt-get install -y --no-install-recommends chromium htop procps net-tools iproute2 grep dbus sudo x11-xserver-utils mesa-utils dbus-x11 && \
     rm -rf /var/lib/apt/lists/*
     
 RUN useradd -m hello

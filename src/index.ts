@@ -22,7 +22,7 @@ const getFriendlyName = (whichBrowser: string): string =>
   whichBrowser[0].toUpperCase() + whichBrowser.slice(1).replace(/[a-z]_[a-z]/g, (_) => _[0] + ' ' + _[2].toUpperCase());
 
 const ranJsDir = !process.argv[1] ? __dirname : extname(process.argv[1]) ? dirname(process.argv[1]) : process.argv[1];
-const getDataPath = (browser: string): string => join(ranJsDir, 'gluon_data', browser, Date.now().toString());
+const getDataPath = (browser: string): string => join(ranJsDir, 'gluon_data', browser);
 
 const portRange = [10000, 60000];
 const generatePort = (): number => Math.floor(Math.random() * (portRange[1] - portRange[0] + 1)) + portRange[0];
