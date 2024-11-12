@@ -1,4 +1,5 @@
 import { exec } from 'node:child_process';
+import type { PublicCDP } from '../launcher/inject';
 import { log } from '../lib/logger'; // Assuming logger.js is a TypeScript file or has a declaration file
 
 const killProcesses = async (pids: number[]): Promise<string> =>
@@ -34,9 +35,7 @@ interface WindowBounds {
 }
 
 export default async (
-  CDP: {
-    send: (method: string, params?: any, waitForReply?: boolean) => Promise<any>;
-  },
+  CDP: PublicCDP,
   { browserType, closeHandlers }: { browserType: string; closeHandlers: (() => void)[] }
 ) => {
   if (browserType !== 'chromium') {

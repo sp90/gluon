@@ -51,7 +51,7 @@ export default (
   CDP: CDP,
   sessionId: string,
   isClosed: () => boolean
-): [(code: string) => void, IPCAPI] => {
+): [(code?: string) => void, IPCAPI] => {
   const injection = `(() => {
 if (window.Gluon) return;
 let onIPCReply = {}, ipcListeners = {}, ipcQueue = [], ipcQueueRes;
@@ -239,8 +239,6 @@ delete window._gluonSend;
       );
 
       if (msg.result.value) {
-        console.log('msg.result: ', msg.result);
-
         onWindowMessage(JSON.parse(msg.result.value));
       }
     }

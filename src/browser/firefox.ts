@@ -16,12 +16,14 @@ export default async (
   { browserPath, dataPath }: { browserPath: string; dataPath: string },
   {
     url,
+    transport,
     windowSize,
     allowHTTP,
     extensions,
     userAgent,
   }: {
     url: string;
+    transport: 'stdio' | 'websocket';
     windowSize?: [number, number];
     allowHTTP: boolean | 'mixed';
     extensions: Promise<string | string[]>[];
@@ -128,5 +130,5 @@ html:not([tabsintitlebar="true"]) .tab-icon-image {
     '-no-remote',
   ];
 
-  return await StartBrowser(browserPath, args, 'websocket', extra);
+  return await StartBrowser(browserPath, args, transport, extra);
 };

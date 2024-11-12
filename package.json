@@ -4,7 +4,9 @@
   "description": "Make websites into desktop apps with system installed browsers and NodeJS.",
   "main": "src/index.js",
   "types": "gluon.d.ts",
-  "scripts": {},
+  "scripts": {
+    "start": "bun run gluworld/index.ts"
+  },
   "repository": {
     "type": "git",
     "url": "git+https://github.com/gluon-framework/gluon.git"

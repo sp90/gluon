@@ -124,7 +124,6 @@
         width: 100%;
       }
 
-      #build,
       #built_with {
         display: none;
       }
@@ -136,7 +135,7 @@
           const check = () => {
             console.log('Gluon check');
             console.log(window.Gluon);
-            if (!window.Gluon) return setTimeout(check, 1);
+            if (!window.Gluon) return setTimeout(check, 200);
             console.log('Gluon is ready');
             res();
           };
@@ -152,8 +151,6 @@
         bun_webkit.textContent = Gluon.versions.js.bun;
         browser_v8.textContent = Gluon.versions.js.browser;
 
-        console.log('versions:', Gluon.versions);
-
         if (Gluon.versions.builder !== 'nothing') {
           build.style.display = 'block';
           built_with.style.display = 'block';
@@ -167,9 +164,11 @@
           const kb = size / 1024;
           const mb = kb / 1024;
 
+          console.log('build_size: ', build_size);
+
           build_size.textContent = mb > 0.1 ? `${mb.toFixed(2)}MB` : `${kb.toFixed(0)}KB`;
 
-          console.log('Build size:', build_size.textContent);
+          console.log(`Build size: ${build_size.textContent}`);
         });
       })();
     </script>

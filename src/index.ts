@@ -15,7 +15,7 @@ declare global {
   }
 }
 
-process.versions.gluon = '0.14.0-bun-dev';
+process.versions.gluon = '0.15.0-bun-dev';
 
 const __dirname = new URL('.', import.meta.url).pathname; // Use URL object for __dirname
 
@@ -23,7 +23,7 @@ const getFriendlyName = (whichBrowser: string): string =>
   whichBrowser[0].toUpperCase() + whichBrowser.slice(1).replace(/[a-z]_[a-z]/g, (_) => _[0] + ' ' + _[2].toUpperCase());
 
 const ranJsDir = !process.argv[1] ? __dirname : extname(process.argv[1]) ? dirname(process.argv[1]) : process.argv[1];
-const getDataPath = (browser: string): string => join(ranJsDir, 'gluon_data', browser);
+const getDataPath = (browser: string): string => join(ranJsDir, 'gluon_data', browser, Date.now().toString());
 
 const portRange = [10000, 60000];
 const generatePort = (): number => Math.floor(Math.random() * (portRange[1] - portRange[0] + 1)) + portRange[0];
@@ -53,6 +53,7 @@ interface BrowserOptions {
 const startBrowser = async (
   url: string,
   parentDir: string,
+  transport: 'stdio' | 'websocket',
   {
     allowHTTP = false,
     allowNavigation = 'same-origin',
@@ -85,8 +86,7 @@ const startBrowser = async (
 
   const closeHandlers: (() => Promise<void>)[] = [];
   if (openingLocal && browserType === 'firefox') {
-    // TODO: fix any
-    closeHandlers.push((await LocalHTTP({ url: localUrl, basePath, csp: localCSP })) as any);
+    closeHandlers.push(await LocalHTTP({ url: localUrl, basePath, csp: localCSP }));
   }
 
   const Window = await (browserType === 'firefox' ? Firefox : Chromium)(
@@ -96,6 +96,7 @@ const startBrowser = async (
     },
     {
       url: openingLocal ? localUrl : url,
+      transport,
       windowSize,
       allowHTTP,
       extensions: ExtensionsAPI._extensions[browserType],
@@ -135,7 +136,7 @@ const checkForDangerousOptions = ({ allowHTTP, allowNavigation, localCSP }: Brow
   if (localCSP === '') dangerousAPI('Gluon.open', 'localCSP', "''");
 };
 
-export const open = async (url: string, opts: BrowserOptions = {}) => {
+export const open = async (url: string, transport: 'stdio' | 'websocket' = 'stdio', opts: BrowserOptions = {}) => {
   const { allowHTTP = false } = opts;
 
   if (allowHTTP !== true && url.startsWith('http://'))
@@ -146,7 +147,7 @@ export const open = async (url: string, opts: BrowserOptions = {}) => {
   checkForDangerousOptions(opts);
   log('starting browser...');
 
-  const Browser = await startBrowser(url, getParentDir(), opts);
+  const Browser = await startBrowser(url, getParentDir(), transport, opts);
 
   return Browser;
 };

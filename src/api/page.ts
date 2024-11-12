@@ -1,3 +1,5 @@
+import type { PublicCDP } from '../launcher/inject';
+
 interface PrintToPDFOptions {
   landscape?: boolean;
   displayHeaderFooter?: boolean;
@@ -25,9 +27,7 @@ interface PrintToPDFOptions {
 }
 
 export default async (
-  CDP: {
-    send: (method: string, params?: any) => Promise<any>;
-  },
+  CDP: PublicCDP,
   evaluate: (expression: string) => Promise<any>,
   { pageLoadPromise }: { pageLoadPromise: Promise<void> }
 ) => {

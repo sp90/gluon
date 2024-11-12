@@ -17,6 +17,7 @@ export default async (
   { browserPath, dataPath }: { browserPath: string; dataPath: string },
   {
     url,
+    transport,
     windowSize,
     allowHTTP,
     extensions,
@@ -24,6 +25,7 @@ export default async (
     userAgent,
   }: {
     url: string;
+    transport: 'stdio' | 'websocket';
     windowSize?: [number, number];
     allowHTTP: boolean | 'mixed';
     extensions?: Promise<string | string[]>[];
@@ -44,6 +46,7 @@ export default async (
   const args = [
     `--app=${url}`,
     `--user-data-dir=${dataPath}`,
+    // '--no-xnnpack',
     !devtools ? `--custom-devtools-frontend=${pathToFileURL(dataPath)}` : '',
     userAgent ? `--user-agent="${userAgent}"` : '',
     windowSize ? `--window-size=${windowSize.join(',')}` : '',
@@ -56,5 +59,5 @@ export default async (
     ),
   ];
 
-  return await StartBrowser(browserPath, args, 'websocket', extra);
+  return await StartBrowser(browserPath, args, transport, extra);
 };

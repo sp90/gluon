@@ -1,3 +1,5 @@
+import type { PublicCDP } from '../launcher/inject';
+
 interface Bounds {
   left?: number;
   top?: number;
@@ -5,7 +7,7 @@ interface Bounds {
   height?: number;
 }
 
-export default async (CDP: { send: (method: string, params?: any) => Promise<any> }) => {
+export default async (CDP: PublicCDP) => {
   const { windowId } = await CDP.send('Browser.getWindowForTarget');
 
   const setWindowState = (state?: string, bounds: Bounds = {}) =>

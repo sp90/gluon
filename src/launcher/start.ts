@@ -1,31 +1,22 @@
 import { spawn } from 'node:child_process';
 import { log } from '../lib/logger'; // Assuming logger.ts exists
 
-import ConnectCDP from '../lib/cdp'; // Assuming cdp.ts exists
+import ConnectCDP, { type CDP, type Pipe } from '../lib/cdp'; // Assuming cdp.ts exists
 import InjectInto, { type WindowOptions } from './inject'; // Assuming inject.ts exists
 
 const portRange = [10000, 60000];
 const generatePort = (): number => Math.floor(Math.random() * (portRange[1] - portRange[0] + 1)) + portRange[0];
 
-interface ExtraOptions {
-  // Define the structure of 'extra' here
-  // For example:
-  // dataPath: string;
-  // browserName: string;
-  // ...
-}
-
 export default async (browserPath: string, args: string[], transport: 'websocket' | 'stdio', extra: WindowOptions) => {
-  // Replace 'any' with the actual return type of InjectInto
-  const port = transport === 'websocket' ? generatePort() : null;
-
-  console.log('port: ', port);
-  console.log('browserPath: ', browserPath);
+  // const port = transport === 'websocket' ? generatePort() : null;
+  const port = transport === 'websocket' ? 3000 : null;
 
   const proc = spawn(
     browserPath,
     [
       transport === 'stdio' ? `--remote-debugging-pipe` : `--remote-debugging-port=${port}`,
+      // `--dbus-launch=${process.env.DBUS_SESSION_BUS_ADDRESS} --autolaunch`,
+      // '--no-sandbox',
       ...args.filter((x) => x),
     ].filter((x) => x),
     {
@@ -34,9 +25,19 @@ export default async (browserPath: string, args: string[], transport: 'websocket
     }
   );
 
+  // Capture stdout and stderr
+  proc.stdout?.on('data', (data) => {
+    console.log(`[Chromium stdout]: ${data}`);
+  });
+
+  proc.stderr?.on('data', (data) => {
+    console.error(`[Chromium stderr]: ${data}`);
+  });
+
   log(`connecting to CDP over ${transport === 'stdio' ? 'stdio pipe' : `websocket (${port})`}`);
 
-  let CDP: any; // Replace 'any' with the actual type of CDP
+  let CDP: CDP | undefined;
+
   switch (transport) {
     case 'websocket':
       CDP = await ConnectCDP({ port: port ?? undefined });
@@ -45,10 +46,11 @@ export default async (browserPath: string, args: string[], transport: 'websocket
     case 'stdio':
       const { 3: pipeWrite, 4: pipeRead } = proc.stdio;
 
-      // @ts-ignore
-      CDP = await ConnectCDP({ pipe: { pipeWrite, pipeRead } });
+      CDP = await ConnectCDP({ pipe: { pipeWrite, pipeRead } as Pipe });
       break;
   }
 
-  return await InjectInto(CDP, proc, 'browser', extra);
+  if (!CDP) throw new Error('CDP connection failed');
+
+  return await InjectInto(CDP as CDP, proc, 'browser', extra);
 };

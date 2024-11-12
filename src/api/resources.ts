@@ -1,4 +1,6 @@
-export default async (CDP: { send: (method: string, params?: any) => Promise<any> }) => {
+import type { PublicCDP } from '../launcher/inject';
+
+export default async (CDP: PublicCDP) => {
   const run = async (js: string | Function) => {
     await CDP.send('Runtime.evaluate', {
       expression: typeof js === 'string' ? js : `(${js.toString()})()`,
@@ -10,7 +12,7 @@ export default async (CDP: { send: (method: string, params?: any) => Promise<any
 if (window.self !== window.top) return;
 await new Promise(res => {
   const check = () => {
-    if (!window.Gluon) return setTimeout(check, 20);
+    if (!window.Gluon) return setTimeout(check, 50);
     res();
   };
 

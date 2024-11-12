@@ -14,26 +14,35 @@ const dirSize = async (directory: string): Promise<number> => {
 };
 
 (async () => {
-  if (Bun.argv.length > 2) {
-    for (const forceBrowser of Bun.argv.slice(2)) {
-      await Gluon.open(join(__dirname, 'index.html'), {
-        windowSize: [800, 500],
-        forceBrowser,
-      });
-    }
+  // if (Bun.argv.length > 2) {
+  //   for (const forceBrowser of Bun.argv.slice(2)) {
+  //     await Gluon.open(join(__dirname, 'index.html'), {
+  //       windowSize: [800, 500],
+  //       // forceBrowser,
+  //     });
+  //   }
 
-    return;
-  }
+  //   return;
+  // }
 
   const startTime = performance.now();
 
-  const Browser = await Gluon.open(join(__dirname, 'index.html'), {
+  const Browser = await Gluon.open(join(__dirname, 'index.html'), 'websocket', {
     windowSize: [800, 500],
   });
 
-  console.log('Browser: ', Browser);
+  // console.log('Browser: ', Browser);
 
   log(`Took ${performance.now() - startTime}ms to open browser`);
 
-  Browser.ipc.send('build size', await dirSize(__dirname));
+  const size = await dirSize(__dirname);
+  console.log('size: ', size);
+
+  setTimeout(async () => {
+    Browser.ipc.send('build size', size);
+  }, 1000);
+
+  Browser.ipc.on('comms', (type) => {
+    console.log('comms: ', type);
+  });
 })();

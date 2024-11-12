@@ -1,5 +1,6 @@
 import { access, readFile, writeFile } from 'node:fs/promises';
 import { join, sep } from 'node:path';
+import type { PublicCDP } from '../launcher/inject';
 import { log } from '../lib/logger'; // Assuming logger.js is a TypeScript file or has a declaration file
 
 interface CompilationCacheEntry {
@@ -8,10 +9,7 @@ interface CompilationCacheEntry {
 }
 
 export default async (
-  CDP: {
-    on: (event: string, listener: (data: any) => void, once?: boolean) => void; // Replace 'any' with the specific event data type if known
-    send: (method: string, params?: any) => Promise<any>;
-  },
+  CDP: PublicCDP,
   evaluate: (expression: string) => Promise<any>,
   { browserType, dataPath }: { browserType: string; dataPath: string }
 ) => {

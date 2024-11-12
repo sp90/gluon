@@ -20,6 +20,11 @@ interface CDP {
   close: () => void;
 }
 
+export interface PublicCDP {
+  send: (method: string, params?: any, useSessionId?: boolean) => Promise<any>;
+  on: (method: string, handler: (msg: any) => void, once?: boolean) => () => void;
+}
+
 export interface WindowOptions {
   dataPath: string;
   browserName: string;
@@ -105,12 +110,11 @@ export default async (
   CDP.onMessage(async (msg) => {
     if (msg.method === 'Page.frameStoppedLoading') frameLoadCallback(msg.params);
     if (msg.method === 'Page.loadEventFired') pageLoadCallback();
-    if (msg.method === 'Runtime.executionContextCreated') {
-      try {
-        // @ts-ignore
-        injectIPC(); // ensure IPC injection again
-      } catch {}
-    }
+    // if (msg.method === 'Runtime.executionContextCreated') {
+    //   try {
+    //     injectIPC('123'); // ensure IPC injection again
+    //   } catch {}
+    // }
 
     if (msg.method === 'Page.frameScheduledNavigation' || msg.method === 'Page.frameNavigated') {
       let newUrl = msg.params?.frame?.url ?? msg.params?.url;
@@ -143,25 +147,26 @@ export default async (
   });
 
   const browserInfo: BrowserInfo = await CDP.sendMessage('Browser.getVersion');
-  log('browser:', browserInfo.product);
+  // log('browser:', browserInfo.product);
 
-  let sessionId: string;
-  if (injectionType === 'browser') sessionId = await acquireTarget(CDP, (target) => target.url !== 'about:blank');
+  let sessionId: string | undefined;
+  if (injectionType === 'browser') {
+    sessionId = await acquireTarget(CDP, (target) => target.url !== 'about:blank');
+  }
 
   await CDP.sendMessage('Runtime.enable'); // enable runtime API
   await CDP.sendMessage('Page.enable'); // enable page API
 
-  // @ts-ignore
-  if (openingLocal && browserType === 'chromium') await LocalCDP(CDP, { sessionId, url, basePath, csp: localCSP });
+  if (openingLocal && browserType === 'chromium') {
+    await LocalCDP(CDP, { sessionId: sessionId!, url, basePath, csp: localCSP });
+  }
 
-  const evalInWindow = async (func: string | (() => any)): Promise<any> => {
-    console.log('evalInWindow');
-    // await frameLoadPromise; // wait for page to load before eval, otherwise fail
+  const evalInWindow = async (func: string | (() => any)) => {
+    await frameLoadPromise; // wait for page to load before eval, otherwise fail
+
     const reply = await CDP.sendMessage(`Runtime.evaluate`, {
       expression: typeof func === 'string' ? func : `(${func.toString()})()`,
     });
-
-    console.log('reply: ', reply);
 
     if (reply.exceptionDetails)
       return new ((global as any)[reply.result?.className] ?? Error)(
@@ -224,8 +229,7 @@ export default async (
     { browserName, browserInfo, browserType },
     { evalInWindow, evalOnNewDocument },
     CDP,
-    // @ts-ignore
-    sessionId,
+    sessionId!,
     () => (typeof Window === 'undefined' ? false : Window.closed)
   );
   Window.ipc = IPC;
@@ -261,7 +265,7 @@ export default async (
 
       return unhook;
     },
-  };
+  } as PublicCDP;
 
   Window.page = await PageApi(Window.cdp, evalInWindow, { pageLoadPromise });
   Window.idle = await IdleApi(Window.cdp, { browserType, closeHandlers });

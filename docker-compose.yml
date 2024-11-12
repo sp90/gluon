@@ -1,0 +1,14 @@
+version: '3.9' # Specify the Docker Compose version
+
+services:
+  chromium-bun-ui:
+    build: . # Build the image from the current directory (where your Dockerfile is)
+    environment:
+      - DISPLAY=host.docker.internal:0
+    volumes:
+      - /tmp/.X11-unix:/tmp/.X11-unix # Mount the X11 socket
+      - ./:/app
+    ports:
+      - '3000:3000' # Expose the dynamically allocated port
+    command: ['/usr/local/bin/start-chromium'] # Your startup script
+

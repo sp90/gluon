@@ -41,5 +41,5 @@ export default async (
 
   await CDP.sendMessage('Page.reload', {}, sessionId);
 
-  log('local setup');
+  log('local setup cdp');
 };

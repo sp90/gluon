@@ -155,7 +155,7 @@ ${
 </style>`;
 
   const url = 'data:text/html;base64,' + Buffer.from(html).toString('base64');
-  open(url, {
+  open(url, 'websocket', {
     windowSize: [420 + name.length * 8, 340 + 36 * links.length],
     incognito: true,
   });
