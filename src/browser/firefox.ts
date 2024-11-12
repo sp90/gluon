@@ -2,6 +2,7 @@ import { access, copyFile, mkdir, writeFile } from 'node:fs/promises';
 import { basename, join } from 'node:path';
 
 import StartBrowser from '../launcher/start'; // Assuming start.js is a TypeScript file or has a declaration file
+import type { BrowserOptions } from './chromium';
 
 const exists = async (path: string): Promise<boolean> => {
   try {
@@ -14,21 +15,7 @@ const exists = async (path: string): Promise<boolean> => {
 
 export default async (
   { browserPath, dataPath }: { browserPath: string; dataPath: string },
-  {
-    url,
-    transport,
-    windowSize,
-    allowHTTP,
-    extensions,
-    userAgent,
-  }: {
-    url: string;
-    transport: 'stdio' | 'websocket';
-    windowSize?: [number, number];
-    allowHTTP: boolean | 'mixed';
-    extensions: Promise<string | string[]>[];
-    userAgent: string;
-  },
+  { url, transport, windowSize, allowHTTP, extensions, userAgent }: BrowserOptions,
   extra: any // Replace 'any' with the actual type of extra if known
 ) => {
   await mkdir(dataPath, { recursive: true });
@@ -115,7 +102,7 @@ html:not([tabsintitlebar="true"]) .tab-icon-image {
   );
 
   await mkdir(join(dataPath, 'extensions'), { recursive: true });
-  for (const ext of (await Promise.all(extensions)).flat()) {
+  for (const ext of (await Promise.all(extensions ?? [])).flat()) {
     const installPath = join(dataPath, 'extensions', basename(ext));
     if (!(await exists(installPath))) await copyFile(ext, installPath);
   }

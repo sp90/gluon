@@ -2,7 +2,19 @@ import { writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { pathToFileURL } from 'url';
 
+import type { PathOptions } from '..';
+import type { WindowOptions } from '../launcher/inject';
 import StartBrowser from '../launcher/start'; // Assuming start.js is a TypeScript file or has a declaration file
+
+export type BrowserOptions = {
+  url: string;
+  transport: 'stdio' | 'websocket';
+  windowSize?: [number, number];
+  allowHTTP: boolean | 'mixed';
+  extensions?: Promise<string | string[]>[];
+  devtools: boolean;
+  userAgent?: string;
+};
 
 const presets = {
   // Presets from OpenAsar
@@ -14,25 +26,9 @@ const presets = {
 };
 
 export default async (
-  { browserPath, dataPath }: { browserPath: string; dataPath: string },
-  {
-    url,
-    transport,
-    windowSize,
-    allowHTTP,
-    extensions,
-    devtools,
-    userAgent,
-  }: {
-    url: string;
-    transport: 'stdio' | 'websocket';
-    windowSize?: [number, number];
-    allowHTTP: boolean | 'mixed';
-    extensions?: Promise<string | string[]>[];
-    devtools: boolean;
-    userAgent?: string;
-  },
-  extra: any // Replace 'any' with the actual type of extra if known
+  { browserPath, dataPath }: PathOptions,
+  { url, transport, windowSize, allowHTTP, extensions, devtools, userAgent }: BrowserOptions,
+  extra: WindowOptions
 ) => {
   if (!devtools) {
     (async () => {

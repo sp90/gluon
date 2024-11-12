@@ -53,7 +53,9 @@
       <h2 id="comms">
         Communication over
         <br />
-        <button onclick="window.Gluon.ipc.send('comms', 'websocket')">WebSocket</button>
+        <button onclick="window.Gluon.ipc.send('comms', 'websocket'); console.log('websocket clicked');">
+          WebSocket
+        </button>
         <div id="commsType"></div>
       </h2>
     </div>
@@ -137,6 +139,7 @@
             console.log(window.Gluon);
             if (!window.Gluon) return setTimeout(check, 200);
             console.log('Gluon is ready');
+            window.Gluon.ipc.send('gluonLoadedInBrowser');
             res();
           };
 

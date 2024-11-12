@@ -1,11 +1,12 @@
 #!/bin/bash
 sudo service dbus start
 eval $(dbus-launch)
+# Wait for dbus to start
 while ! pgrep -x dbus-daemon > /dev/null; do sleep 0.1; done
-echo "dbus address"
-echo $DBUS_SESSION_BUS_ADDRESS
-echo "dbus pid"
-echo $DBUS_SESSION_BUS_PID
-echo "dbus windowid"
-echo $DBUS_SESSION_BUS_WINDOWID
+# echo "dbus address"
+# echo $DBUS_SESSION_BUS_ADDRESS
+# echo "dbus pid"
+# echo $DBUS_SESSION_BUS_PID
+# echo "dbus windowid"
+# echo $DBUS_SESSION_BUS_WINDOWID
 su hello -c "bun /app/gluworld/index.ts"

@@ -1,3 +1,5 @@
+import type { CDP } from './cdp';
+import injectIPC from './ipc-injection';
 import { log } from './logger'; // Assuming logger.ts exists
 
 const logIPC = process.argv.includes('--ipc-logging');
@@ -16,10 +18,6 @@ interface BrowserParams {
 interface EvalParams {
   evalInWindow: (code: string) => void;
   evalOnNewDocument: (code: string) => void;
-}
-
-interface CDP {
-  sendMessage: (method: string, params: any, sessionId: string) => Promise<any>;
 }
 
 interface IPCMessage {
@@ -47,16 +45,12 @@ export interface IPCAPI {
 
 export default (
   { browserName, browserInfo, browserType }: BrowserParams,
-  { evalInWindow, evalOnNewDocument }: EvalParams,
+  evalInWindow: (CDP: CDP, sessionId: string, expression: string) => Promise<any>,
   CDP: CDP,
   sessionId: string,
-  isClosed: () => boolean
-): [(code?: string) => void, IPCAPI] => {
-  const injection = `(() => {
-if (window.Gluon) return;
-let onIPCReply = {}, ipcListeners = {}, ipcQueue = [], ipcQueueRes;
-const Gluon = {
-  versions: {
+  closed: boolean
+) => {
+  const injection = injectIPC(`{
     gluon: '${process.versions.gluon}',
     builder: '${'GLUGUN_VERSION' === 'GLUGUN_VERSION' ? 'nothing' : 'Glugun GLUGUN_VERSION'}',
     bun: '${Bun.version}',
@@ -73,140 +67,11 @@ const Gluon = {
       bun: '${!!process.versions.bun}',
       browser: false
     }
-  },
+  }`);
 
-  ipc: {
-    send: async (type, data, id = undefined) => {
-      const isReply = !!id;
-      id = id ?? Math.random().toString().split('.')[1];
-
-      ipcQueue.push({
-        id,
-        type,
-        data
-      });
-      if (ipcQueueRes) {
-        ipcQueueRes();
-        ipcQueueRes = null;
-      }
-
-      if (isReply) return;
-
-      const reply = await new Promise(res => {
-        onIPCReply[id] = msg => res(msg);
-      });
-
-      return reply.data;
-    },
-
-    on: (type, cb) => {
-      if (!ipcListeners[type]) ipcListeners[type] = [];
-      ipcListeners[type].push(cb);
-    },
-
-    removeListener: (type, cb) => {
-      if (!ipcListeners[type]) return false;
-      ipcListeners[type].splice(ipcListeners[type].indexOf(cb), 1);
-    },
-
-    _get: async () => {
-      if (ipcQueue.length === 0) await new Promise(res => ipcQueueRes = res);
-      return JSON.stringify(ipcQueue.shift());
-    },
-
-    _receive: async msg => {
-      const { id, type, data } = msg;
-
-      if (onIPCReply[id]) {
-        onIPCReply[id]({ type, data });
-        delete onIPCReply[id];
-        return;
-      }
-
-      if (ipcListeners[type]) {
-        let reply;
-
-        for (const cb of ipcListeners[type]) {
-          const ret = await cb(data);
-          if (!reply) reply = ret; // use first returned value as reply
-        }
-
-        if (reply) return Gluon.ipc.send('reply', reply, id); // reply with wanted reply
-      }
-
-      Gluon.ipc.send('pong', null, id);
-    },
-
-    _send: window._gluonSend
-  },
-};
-
-let _store = {};
-Gluon.ipc.send('web store sync').then(syncedStore => _store = syncedStore);
-const updateBackend = (key, value) => { // update backend with a key/value change
-  Gluon.ipc.send('web store write', { key, value });
-};
-
-Gluon.ipc.store = new Proxy({
-  get: (key) => {
-    return _store[key];
-  },
-
-  set: (key) => {
-    _store[key] = value;
-
-    updateBackend(key, value);
-    return value;
-  },
-
-  keys: () => Object.keys(_store),
-  toJSON: () => _store
-}, {
-  get(target, key) {
-    return target[key] ?? _store[key];
-  },
-
-  set(target, key, value) {
-    if (target[key]) throw new Error('Cannot overwrite Gluon functions');
-
-    _store[key] = value;
-
-    updateBackend(key, value);
-    return true;
-  },
-
-  deleteProperty(target, key) {
-    if (target[key]) throw new Error('Cannot overwrite Gluon functions');
-
-    delete _store[key];
-
-    updateBackend(key, undefined);
-    return true;
-  }
-});
-
-Gluon.ipc.on('backend store write', ({ key, value }) => {
-  if (value === undefined) delete _store[key];
-    else _store[key] = value;
-});
-
-Gluon.ipc = new Proxy(Gluon.ipc, {
-  get(target, key) {
-    return (Gluon.ipc[key] = target[key] ?? ((...args) => Gluon.ipc.send('exposed ' + key, args)));
-  }
-});
-
-window.Gluon = Gluon;
-
-delete window._gluonSend;
-})();`;
-
-  evalInWindow(injection);
-  evalOnNewDocument(injection);
+  evalInWindow(CDP, sessionId, injection);
 
   const onWindowMessage = async ({ id, type, data }: IPCMessage): Promise<void> => {
-    // if (logIPC) log('IPC: recv', { type, data, id });
-
     if (onIPCReply[id]) {
       onIPCReply[id]({ type, data });
       delete onIPCReply[id];
@@ -228,7 +93,7 @@ delete window._gluonSend;
   };
 
   (async () => {
-    while (!isClosed()) {
+    while (!closed) {
       const msg = await CDP.sendMessage(
         'Runtime.evaluate',
         {
@@ -238,8 +103,8 @@ delete window._gluonSend;
         sessionId
       );
 
-      if (msg.result.value) {
-        onWindowMessage(JSON.parse(msg.result.value));
+      if ((msg as any)?.result?.value) {
+        onWindowMessage(JSON.parse((msg as any).result.value));
       }
     }
   })();
@@ -254,6 +119,8 @@ delete window._gluonSend;
     if (logIPC) log('IPC: send', { type, data, id });
 
     evalInWindow(
+      CDP,
+      sessionId,
       `window.Gluon.ipc._receive(${JSON.stringify({
         id,
         type,
@@ -263,11 +130,10 @@ delete window._gluonSend;
 
     if (isReply) return; // we are replying, don't expect reply back
 
-    const reply = await new Promise((res) => {
-      onIPCReply[id!] = (msg) => res(msg);
+    const reply = await new Promise((resolve) => {
+      onIPCReply[id!] = (msg) => resolve(msg);
     });
 
-    // TODO: fix any
     return (reply as any).data;
   };
 
@@ -382,5 +248,5 @@ delete window._gluonSend;
     },
   });
 
-  return [() => evalInWindow(injection), API];
+  return API;
 };

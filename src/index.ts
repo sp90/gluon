@@ -1,11 +1,10 @@
 import { dirname, extname, isAbsolute, join } from 'node:path';
-import { fileURLToPath } from 'url';
 import { dangerousAPI, log } from './lib/logger'; // Assuming logger.ts exists
 
-import Chromium from './browser/chromium'; // Assuming chromium.ts exists
-import Firefox from './browser/firefox'; // Assuming firefox.ts exists
+import Chromium, { type BrowserOptions } from './browser/chromium'; // Assuming chromium.ts exists
 
 import * as ExtensionsAPI from './extensions'; // Assuming extensions.ts exists
+import type { WindowOptions } from './launcher/inject';
 import { findBrowserPath, getBrowserType } from './lib/browserPaths'; // Assuming browserPaths.ts exists
 import LocalHTTP from './lib/local/http'; // Assuming http.ts exists
 
@@ -38,7 +37,7 @@ const defaultCSP = ['upgrade-insecure-requests']
   )
   .join('; ');
 
-interface BrowserOptions {
+export interface StartBrowserOptions {
   allowHTTP?: boolean;
   allowNavigation?: string;
   windowSize?: [number, number];
@@ -48,6 +47,11 @@ interface BrowserOptions {
   devtools?: boolean;
   userAgent?: string;
   incognito?: boolean;
+}
+
+export interface PathOptions {
+  browserPath: string;
+  dataPath: string;
 }
 
 const startBrowser = async (
@@ -64,7 +68,7 @@ const startBrowser = async (
     devtools,
     userAgent,
     incognito,
-  }: BrowserOptions
+  }: StartBrowserOptions
 ) => {
   const [browserPath, browserName] = await findBrowserPath(forceBrowser, forceEngine);
   if (!browserPath || !browserName) {
@@ -89,72 +93,101 @@ const startBrowser = async (
     closeHandlers.push(await LocalHTTP({ url: localUrl, basePath, csp: localCSP }));
   }
 
-  const Window = await (browserType === 'firefox' ? Firefox : Chromium)(
-    {
-      dataPath,
-      browserPath,
-    },
-    {
-      url: openingLocal ? localUrl : url,
-      transport,
-      windowSize,
-      allowHTTP,
-      extensions: ExtensionsAPI._extensions[browserType],
-      devtools: devtools === false ? process.argv.includes('--enable-devtools') : true,
-      userAgent: userAgent ?? '',
-    },
-    {
-      browserName: browserFriendlyName,
-      url: openingLocal ? localUrl : url,
-      basePath,
-      openingLocal,
-      closeHandlers,
-      browserType,
-      dataPath,
-      allowNavigation,
-      localCSP,
-    }
-  );
+  const windowOptions: WindowOptions = {
+    browserName: browserFriendlyName,
+    url: openingLocal ? localUrl : url,
+    basePath,
+    openingLocal,
+    closeHandlers,
+    browserType,
+    dataPath,
+    allowNavigation,
+    localCSP,
+  };
 
-  return Window;
+  const browserOptions: BrowserOptions = {
+    url: openingLocal ? localUrl : url,
+    transport,
+    windowSize,
+    allowHTTP,
+    extensions: ExtensionsAPI._extensions[browserType],
+    devtools: devtools === false ? process.argv.includes('--enable-devtools') : true,
+    userAgent: userAgent ?? '',
+  };
+
+  const pathOptions: PathOptions = {
+    browserPath,
+    dataPath,
+  };
+
+  if (browserType === 'chromium') {
+    return await Chromium(pathOptions, browserOptions, windowOptions);
+  }
+
+  // if (browserType === 'firefox') {
+  //   return await Firefox(pathOptions, browserOptions, windowOptions);
+  // }
+
+  throw new Error('Invalid browser type');
 };
 
 // get parent directory of where function was called from
 const getParentDir = (): string => {
-  let place = new Error().stack!.split('\n')[3].slice(7).trim().split(':').slice(0, -2).join(':');
-  if (place.includes('(') && place.includes(')')) {
-    place = place.split('(').slice(1).join('(');
+  let parentDir = new URL('.', import.meta.url).pathname;
+
+  // Remove trailing slash if it exists
+  if (parentDir.endsWith('/')) {
+    parentDir = parentDir.slice(0, -1);
   }
 
-  if (place.startsWith('file://')) place = fileURLToPath(place);
-  return dirname(place);
+  return parentDir;
 };
 
-const checkForDangerousOptions = ({ allowHTTP, allowNavigation, localCSP }: BrowserOptions): void => {
-  if (allowHTTP === true) dangerousAPI('Gluon.open', 'allowHTTP', 'true');
+const checkForDangerousOptions = ({ allowHTTP, allowNavigation, localCSP }: StartBrowserOptions, url: string): void => {
+  if (allowHTTP === true) {
+    dangerousAPI('Gluon.open', 'allowHTTP', 'true');
+  } else if (allowHTTP !== false && url.startsWith('http://')) {
+    throw new Error(
+      `HTTP URLs are blocked by default. Please use HTTPS, or if not possible, enable the 'allowHTTP' option.`
+    );
+  }
   if (allowNavigation !== 'same-origin') dangerousAPI('Gluon.open', 'allowNavigation', 'true');
   if (localCSP === '') dangerousAPI('Gluon.open', 'localCSP', "''");
 };
 
-export const open = async (url: string, transport: 'stdio' | 'websocket' = 'stdio', opts: BrowserOptions = {}) => {
-  const { allowHTTP = false } = opts;
+async function waitForGluonLoadedInBrowser(browser: any): Promise<void> {
+  return new Promise<void>((resolve) => {
+    const listener = () => {
+      browser.ipc.removeListener('gluonLoadedInBrowser', listener);
+      resolve();
+    };
 
-  if (allowHTTP !== true && url.startsWith('http://'))
-    throw new Error(
-      `HTTP URLs are blocked by default. Please use HTTPS, or if not possible, enable the 'allowHTTP' option.`
-    );
+    browser.ipc.on('gluonLoadedInBrowser', listener);
+  });
+}
 
-  checkForDangerousOptions(opts);
+export const open = async (
+  url: string,
+  transport: 'stdio' | 'websocket' = 'stdio',
+  opts: StartBrowserOptions = {
+    allowHTTP: false,
+    allowNavigation: 'same-origin',
+  }
+) => {
+  log('opts: ', opts);
+  checkForDangerousOptions(opts, url);
   log('starting browser...');
 
   const Browser = await startBrowser(url, getParentDir(), transport, opts);
 
+  await waitForGluonLoadedInBrowser(Browser);
+
   return Browser;
 };
 
-export const extensions = {
-  add: ExtensionsAPI.add,
-  remove: ExtensionsAPI.remove,
-};
+// export const extensions = {
+//   add: ExtensionsAPI.add,
+//   remove: ExtensionsAPI.remove,
+// };
 
-export { default as openAbout } from './menus/about'; // Assuming about.ts exists
+// export { default as openAbout } from './menus/about'; // Assuming about.ts exists
